@@ -1,0 +1,36 @@
+FROM node:10
+
+WORKDIR /usr/src/app
+
+# Install app dependencies
+COPY package*.json ./
+
+RUN npm install
+
+# Bundle app source
+COPY . .
+
+EXPOSE 8080
+CMD [ "node", "server.js" ]
+
+
+-------------------------------------------
+
+FROM node as builder
+LABEL org.opencontainers.image.vendor=demo-frontend
+LABEL works.buddy.intermediate=true
+WORKDIR /root/
+COPY ["package.json", "package-lock.json", "./"]
+RUN ["npm", "install"]
+COPY ["webpack.config.js", "./"]
+COPY ["src/", "./src/"]
+RUN ["npm", "run", "build"]
+RUN ["/bin/bash", "-c", "find . ! -name dist ! -name node_modules -maxdepth 1 -mindepth 1 -exec rm -rf {} \\;"]
+
+FROM node:alpine
+LABEL org.opencontainers.image.vendor=demo-frontend
+LABEL org.opencontainers.image.title="Buddy Team"
+WORKDIR /root/
+COPY --from=builder /root/ ./
+ENTRYPOINT ["node", "/root/node_modules/.bin/http-server" , "./dist/"]
+EXPOSE 8080
